@@ -47,9 +47,10 @@ def send_data(client_socket, data, server_address):
     while base < len(segments):
         
         # send packets within the window
-        for i in range(base, min(base + WINDOW_SIZE, len(segments))):
-            packet = segments[i].encode()
-            client_socket.sendto(packet, server_address)
+        for seq_num in range(base, min(base + WINDOW_SIZE, len(segments))):
+            packet = segments[seq_num].encode()
+            packet_data = f"{seq_num}:{packet}"
+            client_socket.sendto(packet_data.encode(), server_address)
             print("sent packet:", packet)
 
         # check ACKs
@@ -73,15 +74,18 @@ def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     host_ip = socket.gethostbyname(socket.gethostname())
     server_address = (host_ip, PORT)
+    connect = establish_connection(client_socket, host_ip, PORT)
     while True:
-        connect = establish_connection(client_socket, host_ip, PORT)
+        
         if connect:
             data = "Hello, server!"
             server_address = (host_ip, PORT)
             send_data(client_socket, data ,server_address)
         time.sleep(1)
+            
 
-
+if __name__ == '__main__':
+    main()
 
 
     

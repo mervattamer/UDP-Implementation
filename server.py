@@ -1,4 +1,5 @@
 import socket 
+PACKET_SIZE = 1024
 
 def establish_connection(server_socket):
     MAX_RETRIES = 3
@@ -7,7 +8,7 @@ def establish_connection(server_socket):
     retries = 0
     while retries < MAX_RETRIES:
         # Listen for incoming SYN packets
-        data, client_address = server_socket.recvfrom(1024)
+        data, client_address = server_socket.recvfrom(PACKET_SIZE)
 
         # Check for SYN packet
         if data.decode() == "SYN":
@@ -17,7 +18,7 @@ def establish_connection(server_socket):
             # Listen for ACK packet from the client
             server_socket.settimeout(RETRY_TIMEOUT)
             try:
-                data, client_address = server_socket.recvfrom(1024)
+                data, client_address = server_socket.recvfrom(PACKET_SIZE)
 
                 # Check if the received packet is an ACK packet
                 if data.decode() == "ACK":
@@ -32,8 +33,31 @@ def establish_connection(server_socket):
     print("Connection establishment failed after {} retries.".format(MAX_RETRIES))
     return False
 
+def check_received(server_socket):
+    # Buffer to store received packets
+    received_packets = [None] * 1000  # Assuming maximum 1000 packets
 
-                
+    while True:
+        # Receive packet from client
+        packet, client_address = server_socket.recvfrom(PACKET_SIZE)
+
+        #extract sequence number
+        packet_data = packet.decode()
+        seq_num = int(packet_data.split(':')[0])
+        packet_data = packet_data.split(':')[1]
+
+        # store packet in buffer
+        received_packets[seq_num] = packet_data
+
+        # send ACK
+        ack = str(seq_num).encode()
+        server_socket.sendto(ack, client_address)
+        
+        # Check if all previous packets have been received
+        while received_packets[0]:
+            # Print and remove the packet from the buffer
+            print("Received packet:", received_packets.pop(0))
+
 def main(): 
     # Create a UDP socket 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
@@ -46,23 +70,21 @@ def main():
     server_socket.bind(server_address) 
  
     print('UDP server is running on {}:{}'.format(*server_address)) 
+    connect = establish_connection(server_socket)
  
-    while True: 
-        # Receive data from a client 
-        data, client_address = server_socket.recvfrom(1024)  # Buffer size is 1024 bytes 
-
-        connect = establish_connection(server_socket)
+    if connect:
+        check_received(server_socket)
         
 
  
         # Process the received data 
-        print('Received data from {}: {}'.format(client_address, data.decode())) 
+        #print('Received data from {}: {}'.format(client_address, data.decode())) 
  
         # Send a response back to the client
-        response = 'Hello, client!' 
-        server_socket.sendto(response.encode(), client_address) 
+        # response = 'Hello, client!' 
+        # server_socket.sendto(response.encode(), client_address) 
 
-    # Close the socket 
+        # Close the socket 
     server_socket.close() 
  
 if __name__ == '__main__': 
