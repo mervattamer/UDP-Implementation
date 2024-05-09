@@ -1,4 +1,5 @@
 import socket
+import time
 
 HEADER = 1024
 FORMAT = "utf-8"
@@ -11,7 +12,12 @@ def send_request(data):
         soc.connect(ADDR)
         soc.sendall(data.encode(FORMAT))
         data_rec = soc.recv(HEADER).decode(FORMAT)
+
+        # Process the response
+        print('Received response from server:',data_rec)
+
+        # Send ACK to server
+        soc.sendall(b'ACK')
 while True:
     send_request("HII")
-    for i in range(1000000):
-        x = 0 
+    time.sleep(1)

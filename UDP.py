@@ -20,10 +20,16 @@ def main():
         # Process the received data 
         print('Received data from {}: {}'.format(client_address, data.decode())) 
  
-        # Send a response back to the client 
+        # Send a response back to the client
         response = 'Hello, client!' 
         server_socket.sendto(response.encode(), client_address) 
- 
+
+        # Wait for ACK from client
+        ack, _ = server_socket.recvfrom(1024)
+        if ack.decode() == 'ACK':
+            print('ACK received from client {}'.format(client_address))
+        else:
+            print('Invalid ACK received from client {}'.format(client_address))
     # Close the socket 
     server_socket.close() 
  
