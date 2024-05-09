@@ -45,7 +45,8 @@ def check_received(server_socket):
         #extract sequence number
         packet_data = packet.decode()
         if packet_data == "FIN":
-            terminate = connection_termination(server_socket)
+            terminate = connection_termination(server_socket, client_address)
+            continue
         seq_num = int(packet_data.split(':')[0])
         packet_data = packet_data.split(':')[1]
 
@@ -64,7 +65,7 @@ def check_received(server_socket):
     exit(0)
 
 
-def connection_termination(server_socket):
+def connection_termination(server_socket, client_address):
     print("Received FIN packet from client.")
     RETRY_TIMEOUT = 20
 
@@ -76,30 +77,28 @@ def connection_termination(server_socket):
     print("Sent FIN packet to client.")
 
 
-    # Listen for ACK packet from the server
-    server_socket.settimeout(RETRY_TIMEOUT)
-    try:
-        data, server_address = server_socket.recvfrom(PACKET_SIZE)
+    while True : 
+        # Listen for ACK packet from the server
+        server_socket.settimeout(RETRY_TIMEOUT)
+        try:
+            data, server_address = server_socket.recvfrom(PACKET_SIZE)
 
-        # Check for ACK packet
-        if data.decode() == "ACK":
-            print("Received ACK packet from client")
-            return True
-    except socket.timeout:
-        # Timeout occurred, retry
-        print("Timeout waiting for ACK packet form Client. Retrying...")
+            # Check for ACK packet
+            if data.decode() == "ACK":
+                print("Received ACK packet from client.")
+                return True
+            # duplicate FIN
+            if data.decode() == "FIN":
+                print("FIN duplicate")
+                continue
+        except socket.timeout:
+            # Timeout occurred, retry
+            print("Timeout waiting for ACK packet form Client. Retrying...")
 
     return False
     
     
 
-
-# 3. *Connection Termination*:
-#    - Client sends a FIN packet to initiate connection termination.
-#    - Server responds with an ACK packet.
-#    - Server sends a FIN packet to initiate connection termination from its side.
-#    - Client responds with an ACK packet.
-#    - Connection is terminated.
 
 def main(): 
     # Create a UDP socket 

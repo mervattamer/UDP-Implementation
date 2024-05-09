@@ -36,6 +36,7 @@ def establish_connection(client_socket, HOST, PORT):
 
     print("Connection establishment failed after {} retries.".format(MAX_RETRIES))
     return False
+    
 
 def send_data(client_socket, data, server_address):
     WINDOW_SIZE = 5
@@ -79,12 +80,14 @@ def Esc(key):
     except:
         k = key.name  # other keys
     if k == "z":  # keys of interest
-        connection_termination()
+        #connection_termination()
         return False
 
-def connection_termination():
-    MAX_RETRIES = 3
-    RETRY_TIMEOUT = 2  # seconds
+def connection_termination(server_address, client_socket):
+    #global server_address, client_socket
+    global TERMINATE
+    MAX_RETRIES = 5
+    RETRY_TIMEOUT = 5  # seconds
 
     retries = 0
     while retries < MAX_RETRIES:
@@ -99,17 +102,20 @@ def connection_termination():
 
             # Check for ACK packet
             if data.decode() == "ACK":
+                print("Received ACK packet from server.")
                 # Listen for ACK packet from the server
                 client_socket.settimeout(RETRY_TIMEOUT)
                 try:
                     # Listen for FIN packet from the server
                     data, server_address = client_socket.recvfrom(PACKET_SIZE)
-
                     # Check for FIN packet
                     if data.decode() == "FIN":
+                        print("Received FIN packet from server.")
                         client_socket.sendto("ACK".encode(), server_address)
+                        print("Sent ACK packet to terminate connection.")
                         print("Connection terminated successfully.")
                         TERMINATE = True
+                        return True
                 except socket.timeout:
                     # Timeout occurred, retry
                     print("Timeout waiting for FIN packet form Server. Retrying...")
@@ -123,26 +129,21 @@ def connection_termination():
             continue
 
     print("Connection termination failed after {} retries.".format(MAX_RETRIES))
-    return
+    return False
 
-PORT = 5000
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-host_ip = socket.gethostbyname(socket.gethostname())
-server_address = (host_ip, PORT)
-connect = establish_connection(client_socket, host_ip, PORT)
-# listener = keyboard.Listener(on_press=Esc)
-# listener.start()  # start to listen on a separate thread
-# listener.join()  # remove if main thread is polling self.keys
+
+
 
 def main():
-    # PORT = 5000
-    # client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # host_ip = socket.gethostbyname(socket.gethostname())
-    # server_address = (host_ip, PORT)
-    # connect = establish_connection(client_socket, host_ip, PORT)
+    PORT = 5000
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    host_ip = socket.gethostbyname(socket.gethostname())
+    server_address = (host_ip, PORT)
+    connect = establish_connection(client_socket, host_ip, PORT)
     # listener = keyboard.Listener(on_press=connection_termination)
     # listener.start()  # start to listen on a separate thread
     # listener.join()  # remove if main thread is polling self.keys
+    x = 3
     while not TERMINATE:
 
         if connect:
@@ -150,10 +151,11 @@ def main():
             server_address = (host_ip, PORT)
             send_data(client_socket, data ,server_address)
         time.sleep(1)
-        if input() == 'c':
+        if x > 0 :
+            x -= 1
             continue
         else :
-            connection_termination()
+            connection_termination(server_address, client_socket)
 
 
             
