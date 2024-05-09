@@ -1,5 +1,39 @@
 import socket 
- 
+
+def establish_connection(server_socket):
+    MAX_RETRIES = 3
+    RETRY_TIMEOUT = 2  # seconds
+
+    retries = 0
+    while retries < MAX_RETRIES:
+        # Listen for incoming SYN packets
+        data, client_address = server_socket.recvfrom(1024)
+
+        # Check for SYN packet
+        if data.decode() == "SYN":
+            # Send SYN-ACK packet if SYN received
+            server_socket.sendto("SYN-ACK".encode(), client_address)
+
+            # Listen for ACK packet from the client
+            server_socket.settimeout(RETRY_TIMEOUT)
+            try:
+                data, client_address = server_socket.recvfrom(1024)
+
+                # Check if the received packet is an ACK packet
+                if data.decode() == "ACK":
+                    print("Connection established successfully.")
+                    return True
+            except socket.timeout:
+                # Timeout occurred, retry
+                print("Timeout occurred. Retrying...")
+                retries += 1
+                continue
+
+    print("Connection establishment failed after {} retries.".format(MAX_RETRIES))
+    return False
+
+
+                
 def main(): 
     # Create a UDP socket 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
@@ -16,6 +50,10 @@ def main():
     while True: 
         # Receive data from a client 
         data, client_address = server_socket.recvfrom(1024)  # Buffer size is 1024 bytes 
+
+        connect = establish_connection(server_socket)
+        
+
  
         # Process the received data 
         print('Received data from {}: {}'.format(client_address, data.decode())) 
@@ -24,12 +62,6 @@ def main():
         response = 'Hello, client!' 
         server_socket.sendto(response.encode(), client_address) 
 
-        # Wait for ACK from client
-        ack, _ = server_socket.recvfrom(1024)
-        if ack.decode() == 'ACK':
-            print('ACK received from client {}'.format(client_address))
-        else:
-            print('Invalid ACK received from client {}'.format(client_address))
     # Close the socket 
     server_socket.close() 
  
