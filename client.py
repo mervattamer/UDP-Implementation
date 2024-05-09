@@ -1,10 +1,32 @@
 import socket
 import time
-from pynput import keyboard
+#from pynput import keyboard
 PACKET_SIZE = 1024
 FORMAT = "utf-8"
 TERMINATE = False
 # do we have to set timeout = the expected RTT??
+# check sum along side the data
+# check for dup acks
+# http parser
+
+
+
+
+def udp_checksum(data):
+    data = data.encode(FORMAT)
+    # Pad data if the length is odd
+    if len(data) % 2 == 1:
+        data += b'\0'
+
+    # Calculate the checksum using the same algorithm as used in the IP header
+    sum = 0
+    for i in range(0, len(data), 2):
+        word = (data[i] << 8) + (data[i+1])
+        sum += word
+        if sum >> 16:
+            sum = (sum & 0xFFFF) + 1
+    sum = ~sum & 0xFFFF
+    return sum
 
 
 def establish_connection(client_socket, HOST, PORT):
@@ -55,10 +77,12 @@ def send_data(client_socket, data, server_address):
         
         # send packets within the window
         for seq_num in range(base, min(base + WINDOW_SIZE, len(segments))):
-            packet = segments[seq_num].encode()
-            packet_data = f"{seq_num}:{packet}"
+            packet = segments[seq_num]
+            checksum = udp_checksum(packet)
+            # packing data with its checksum
+            packet_data = f"{seq_num}:{packet}:{checksum}"
             client_socket.sendto(packet_data.encode(), server_address)
-            print("sent packet:", packet)
+            print("sent packet:", packet_data)
 
         # check ACKs
         for i in range(base, min(base + WINDOW_SIZE, len(segments))):
@@ -147,7 +171,7 @@ def main():
     while not TERMINATE:
 
         if connect:
-            data = "Hello, server!"
+            data = 'Hello, server!'
             server_address = (host_ip, PORT)
             send_data(client_socket, data ,server_address)
         time.sleep(1)

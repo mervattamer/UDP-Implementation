@@ -1,5 +1,25 @@
 import socket 
+import struct
 PACKET_SIZE = 1024
+FORMAT = "utf-8"
+
+
+def udp_checksum(data):
+    data = data.encode(FORMAT)
+    # Pad data if the length is odd
+    if len(data) % 2 == 1:
+        data += b'\0'
+
+    # Calculate the checksum using the same algorithm as used in the IP header
+    sum = 0
+    for i in range(0, len(data), 2):
+        word = (data[i] << 8) + (data[i+1])
+        sum += word
+        if sum >> 16:
+            sum = (sum & 0xFFFF) + 1
+    sum = ~sum & 0xFFFF
+    return sum
+
 
 def establish_connection(server_socket):
     MAX_RETRIES = 3
@@ -48,10 +68,20 @@ def check_received(server_socket):
             terminate = connection_termination(server_socket, client_address)
             continue
         seq_num = int(packet_data.split(':')[0])
-        packet_data = packet_data.split(':')[1]
+        data = packet_data.split(':')[1]
+        # checksum
+        received_checksum = int(packet_data.split(':')[2])
+        calculated_checksum = udp_checksum(data)
 
-        # store packet in buffer
-        received_packets[seq_num] = packet_data
+        # Verify the checksum
+        if received_checksum == calculated_checksum:
+            print("Checksum verification passed.")
+            print("Received data:", data)
+        else:
+            print("Checksum verification failed.")
+            # retransmit
+            # store packet in buffer
+        received_packets[seq_num] = data
 
         # send ACK
         ack = str(seq_num).encode()
@@ -62,7 +92,7 @@ def check_received(server_socket):
             # Print and remove the packet from the buffer
             print("Received packet:", received_packets.pop(0))
     server_socket.close()
-    exit(0)
+    #exit(0)
 
 
 def connection_termination(server_socket, client_address):
