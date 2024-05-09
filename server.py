@@ -58,6 +58,7 @@ def check_received(server_socket):
             # Print and remove the packet from the buffer
             print("Received packet:", received_packets.pop(0))
 
+
 def main(): 
     # Create a UDP socket 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
