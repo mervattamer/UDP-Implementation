@@ -36,13 +36,16 @@ def establish_connection(server_socket):
 def check_received(server_socket):
     # Buffer to store received packets
     received_packets = [None] * 1000  # Assuming maximum 1000 packets
-
-    while True:
+    terminate = False 
+    while not terminate:
         # Receive packet from client
         packet, client_address = server_socket.recvfrom(PACKET_SIZE)
 
+
         #extract sequence number
         packet_data = packet.decode()
+        if packet_data == "FIN":
+            terminate = connection_termination(server_socket)
         seq_num = int(packet_data.split(':')[0])
         packet_data = packet_data.split(':')[1]
 
@@ -57,15 +60,53 @@ def check_received(server_socket):
         while received_packets[0]:
             # Print and remove the packet from the buffer
             print("Received packet:", received_packets.pop(0))
+    server_socket.close()
+    exit(0)
 
+
+def connection_termination(server_socket):
+    print("Received FIN packet from client.")
+    RETRY_TIMEOUT = 20
+
+    # Send ACK packet to the client
+    server_socket.sendto("ACK".encode(), client_address)
+    print("Sent ACK packet to client.")
+
+    server_socket.sendto("FIN".encode(), client_address)
+    print("Sent FIN packet to client.")
+
+
+    # Listen for ACK packet from the server
+    server_socket.settimeout(RETRY_TIMEOUT)
+    try:
+        data, server_address = server_socket.recvfrom(PACKET_SIZE)
+
+        # Check for ACK packet
+        if data.decode() == "ACK":
+            print("Received ACK packet from client")
+            return True
+    except socket.timeout:
+        # Timeout occurred, retry
+        print("Timeout waiting for ACK packet form Client. Retrying...")
+
+    return False
+    
+    
+
+
+# 3. *Connection Termination*:
+#    - Client sends a FIN packet to initiate connection termination.
+#    - Server responds with an ACK packet.
+#    - Server sends a FIN packet to initiate connection termination from its side.
+#    - Client responds with an ACK packet.
+#    - Connection is terminated.
 
 def main(): 
     # Create a UDP socket 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
  
-    # ipconfig getifaddr en0
     # Bind the socket to a specific IP address and port 
-    #server_address = ('192.168.1.7', 5000)  # Use an empty string for the IP address to listen on all available network interfaces
+    # Use an empty string for the IP address to listen on all available network interfaces
     local_ip = socket.gethostbyname(socket.gethostname())
     server_address = (local_ip, 5000) 
     server_socket.bind(server_address) 
@@ -75,17 +116,8 @@ def main():
  
     if connect:
         check_received(server_socket)
-        
 
- 
-        # Process the received data 
-        #print('Received data from {}: {}'.format(client_address, data.decode())) 
- 
-        # Send a response back to the client
-        # response = 'Hello, client!' 
-        # server_socket.sendto(response.encode(), client_address) 
-
-        # Close the socket 
+    # Close the socket 
     server_socket.close() 
  
 if __name__ == '__main__': 
