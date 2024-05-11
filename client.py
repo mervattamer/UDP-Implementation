@@ -116,12 +116,21 @@ class client:
                             fin = data_received.split(":")[2]
                             r_checksum = int(data_received.split(":")[3])
                             recv_window = int(data_received.split(":")[4])
-                            calc_checksum = udp_checksum(r_seq_num,r_ack_num,recv_window,ack)
+                            calc_checksum = udp_checksum(r_seq_num,r_ack_num,recv_window,fin)
                             # Check for FIN packet
                             if r_checksum == calc_checksum:
                                 if fin == "FIN":
                                     print("Received FIN packet from server.")
-                                    self.client_socket.sendto("ACK".encode(), server_address)
+                                    seq_num = r_ack_num
+                                    ack_num = r_seq_num+len(fin)
+                                    data = "ACK"
+                                    checksum = udp_checksum(seq_num,ack_num,0,data)
+                                    #f"{seq_num}:{ack_num}:{packet}:{checksum}:{recv_window}"
+                                    packet = f"{seq_num}:{ack_num}:{data}:{checksum}:{0}"
+                                    print(checksum)
+                                    self.client_socket.sendto(packet.encode(), server_address)
+                                    self.seq_num = seq_num
+                                    self.ack_num = ack_num
                                     print("Sent ACK packet to terminate connection.")
                                     print("Connection terminated successfully.")
                                     return True

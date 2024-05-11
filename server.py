@@ -74,7 +74,7 @@ class server:
 
         # f"{seq_num}:{ack_num}:{packet}:{checksum}:{recv_window}"
         PACKET_SIZE = self.PACKET_SIZE
-        RETRY_TIMEOUT = 10
+        RETRY_TIMEOUT = 5
         data, client_address = self.server_socket.recvfrom(PACKET_SIZE)
         data = data.decode()
         seq_num = int(data.split(":")[0])
@@ -85,7 +85,7 @@ class server:
         if calc_checksum == received_checksum and request == "FIN":
             self.seq_num = ack_num
             self.ack_num = seq_num+len("FIN")
-            self.connection_termination()
+            self.connection_termination(client_address)
         else:
             # check if data is corrupted here and send neg ack
             if calc_checksum == received_checksum:
@@ -114,11 +114,11 @@ class server:
                             r_seq_num = int(r_data.split(":")[0])
                             packet = r_data.split(":")[2]
                             received_checksum = int(r_data.split(":")[3])
-                            calculated_checksum = udp_checksum(r_seq_num,ack_num,0,packet)
+                            calc_checksum = udp_checksum(r_seq_num,ack_num,0,packet)
                             if calc_checksum==received_checksum:
                                 if ack_num == self.seq_num + len(data):
                                     print("Positive ACK received")
-                                    return
+                                    break
                             # negative ack
                             # ya3ni el reponse kanet corrupted
                                 else :
@@ -128,7 +128,7 @@ class server:
                         except socket.timeout:
                         # Timeout occurred, retry
                             print("Timeout waiting for ACK packet form Client. Retrying...")
-                            break
+                            
                             
                 elif request.split()[0] == "POST":
                     body = request.split()[-1]
@@ -153,7 +153,7 @@ class server:
                             if calc_checksum==received_checksum:
                                 if ack_num == self.seq_num + len(data):
                                     print("Positive ACK received")
-                                    return
+                                    break
                                 # negative ack
                                 # ya3ni el reponse kanet corrupted
                                 else :
@@ -163,7 +163,7 @@ class server:
                         except socket.timeout:
                             # Timeout occurred, retry
                             print("Timeout waiting for ACK packet form Client. Retrying...")
-                            break
+                            
                 
                 else:
                     self.seq_num = ack_num
@@ -186,7 +186,7 @@ class server:
                             if calc_checksum==received_checksum:
                                 if ack_num == self.seq_num + len(data):
                                     print("Positive ACK received")
-                                    return
+                                    break
                             # negative ack
                             # ya3ni el reponse kanet corrupted
                                 else :
@@ -196,7 +196,7 @@ class server:
                         except socket.timeout:
                             # Timeout occurred, retry
                             print("Timeout waiting for ACK packet form Client. Retrying...")
-                            break
+                            
             else:
                 # if packet sent is corrupted 
                 print("Packet is Corrupted")
@@ -206,7 +206,7 @@ class server:
                                        
         
     # connection terminate 
-    def connection_termination(self):
+    def connection_termination(self,client_address):
         PACKET_SIZE = self.PACKET_SIZE
         print("Received FIN packet from client.")
         RETRY_TIMEOUT = 20
@@ -214,33 +214,33 @@ class server:
         checksum = udp_checksum(self.seq_num,self.ack_num,0,data)
         packet = f"{self.seq_num}:{self.ack_num}:{data}:{checksum}:{0}"
         # Send ACK packet to the client
-        server_socket.sendto(packet.encode(), client_address)
+        self.server_socket.sendto(packet.encode(), client_address)
         print("Sent ACK packet to client.")
         self.seq_num += len(data) 
         
         data = "FIN"
         checksum = udp_checksum(self.seq_num,self.ack_num,0,data)
         packet = f"{self.seq_num}:{self.ack_num}:{data}:{checksum}:{0}"
-        server_socket.sendto(packet.encode(), client_address)
+        self.server_socket.sendto(packet.encode(), client_address)
         print("Sent FIN packet to client.")
 
 
         while True : 
             # Listen for ACK packet from the server
-            server_socket.settimeout(RETRY_TIMEOUT)
+            self.server_socket.settimeout(RETRY_TIMEOUT)
             try:
-                data, server_address = server_socket.recvfrom(PACKET_SIZE)
+                data, server_address = self.server_socket.recvfrom(PACKET_SIZE)
                 data = data.decode()
                 seq_num = int(data.split(":")[0])
                 ack_num = int(data.split(":")[1])
                 packet = data.split(":")[2]
-                received_checksum = data.split(":")[3]
+                received_checksum = int(data.split(":")[3])
                 calc_checksum = udp_checksum(seq_num,ack_num,0,packet)
                 # Check for ACK packet
-                if received_checksum == calc_checksum:
+                if packet == "ACK" and (received_checksum == calc_checksum):
                     print("Received ACK packet from client.")
                     exit(0)
-                    return True
+                    #return True
                 # duplicate FIN
                 if packet == "FIN":
                     print("FIN duplicate")
