@@ -71,10 +71,10 @@ class server:
         print("Connection establishment failed after {} retries.".format(MAX_RETRIES))
         return False
     def check_received(self):
-
         # f"{seq_num}:{ack_num}:{packet}:{checksum}:{recv_window}"
         PACKET_SIZE = self.PACKET_SIZE
-        RETRY_TIMEOUT = 5
+        RETRY_TIMEOUT = 15
+        self.server_socket.settimeout(RETRY_TIMEOUT)
         data, client_address = self.server_socket.recvfrom(PACKET_SIZE)
         data = data.decode()
         seq_num = int(data.split(":")[0])
@@ -90,18 +90,19 @@ class server:
             # check if data is corrupted here and send neg ack
             if calc_checksum == received_checksum:
                 if request.split()[0] == "GET":
+                    print("Received GET request")
                     path = request.split()[1]
                     self.seq_num = ack_num
                     self.ack_num = seq_num+len(request)
                     # to resend if negative ack
                     while True:
                         if path == "/path/to/resource": 
-                            data = "HTTP/1.1 200 OK\r\nSuccessful GET Request"
+                            data = "HTTP/1.0 200 OK\r\nSuccessful GET Request"
                             checksum = udp_checksum(self.seq_num,self.ack_num,0,data)
                             packet = f"{self.seq_num}:{self.ack_num}:{data}:{checksum}:{0}"
                             self.server_socket.sendto(packet.encode(), client_address)
                         else :
-                            data = "HTTP/1.1 404 Not Found\r\nPath Not Found"
+                            data = "HTTP/1.0 404 Not Found\r\nPath Not Found"
                             checksum = udp_checksum(self.seq_num,self.ack_num,0,data)
                             packet = f"{self.seq_num}:{self.ack_num}:{data}:{checksum}:{0}"
                             self.server_socket.sendto(packet.encode(), client_address)
@@ -131,15 +132,15 @@ class server:
                             
                             
                 elif request.split()[0] == "POST":
-                    body = request.split()[-1]
-                    print(f"body of POST request {body}")
+                    body = " ".join(request.split()[3:])
+                    print(f"body of POST request : {body}")
                     self.seq_num = ack_num
                     self.ack_num = seq_num+len(request)
                     while True:
-                        data = "HTTP/1.1 200 OK\r\nSuccessful POST Request"
+                        data = "HTTP/1.0 200 OK\r\nSuccessful POST Request"
                         checksum = udp_checksum(self.seq_num,self.ack_num,0,data)
                         packet = f"{self.seq_num}:{self.ack_num}:{data}:{checksum}:{0}"
-                        server_socket.sendto(packet.encode(), client_address)
+                        self.server_socket.sendto(packet.encode(), client_address)
                         # Listen for ACK packet from the client
                         self.server_socket.settimeout(RETRY_TIMEOUT)
                         try:
@@ -149,7 +150,7 @@ class server:
                             r_seq_num = int(r_data.split(":")[0])
                             packet = r_data.split(":")[2]
                             received_checksum = int(r_data.split(":")[3])
-                            calculated_checksum = udp_checksum(r_seq_num,ack_num,0,packet)
+                            calc_checksum = udp_checksum(r_seq_num,ack_num,0,packet)
                             if calc_checksum==received_checksum:
                                 if ack_num == self.seq_num + len(data):
                                     print("Positive ACK received")
@@ -169,7 +170,7 @@ class server:
                     self.seq_num = ack_num
                     self.ack_num = seq_num+len(request)
                     while True:
-                        data = "HTTP/1.1 400 Bad Request\r\n"
+                        data = "HTTP/1.0 400 Bad Request\r\n"
                         checksum = udp_checksum(self.seq_num,self.ack_num,0,data)
                         packet = f"{self.seq_num}:{self.ack_num}:{data}:{checksum}:{0}"
                         self.server_socket.sendto(packet.encode(), client_address)
@@ -182,7 +183,7 @@ class server:
                             r_seq_num = int(r_data.split(":")[0])
                             packet = r_data.split(":")[2]
                             received_checksum = int(r_data.split(":")[3])
-                            calculated_checksum = udp_checksum(r_seq_num,ack_num,0,packet)
+                            calc_checksum = udp_checksum(r_seq_num,ack_num,0,packet)
                             if calc_checksum==received_checksum:
                                 if ack_num == self.seq_num + len(data):
                                     print("Positive ACK received")

@@ -1,7 +1,9 @@
 import socket
 import time
 import random
-# implement packet loss we packket corruption
+random.seed(1) # un-comment this line to force packet corruption
+# choose request type in lines 17-18
+# implement packet loss 
 class client:
     def __init__(self,PACKET_SIZE = 100,FORMAT = "utf-8",PORT = 5000):
         self.seq_num = 90
@@ -12,8 +14,9 @@ class client:
         self.IP = socket.gethostbyname(socket.gethostname())
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         if self.establish_connection():
-            self.send_request("GET","/path/to/resource","1.0")
-            #self.send_request("POST","/path/to/resource","1.0","helloooo how are you")
+            self.send_request("GET","/path/to/resource","1.0") # GET
+            #self.send_request("POST","/path/to/resource","1.0","helloooo how are you") # POST
+            #self.send_request("P","/path/to/resource","1.0","helloooo how are you") # BAD REQUEST
             self.connection_termination()
     
     def establish_connection(self):
@@ -86,7 +89,6 @@ class client:
             packet_data = f"{self.seq_num}:{self.ack_num}:{data}:{checksum}:{0}"
             self.client_socket.sendto(packet_data.encode(), server_address)
             print("Sent FIN packet to terminate connection.")
-            time.sleep(1)
             # Listen for ACK packet from the server
             self.client_socket.settimeout(RETRY_TIMEOUT)
             try:
@@ -155,12 +157,11 @@ class client:
     def send_request(self,method,path,version,body=""):
         PACKET_SIZE = self.PACKET_SIZE
         server_address = (self.IP,self.PORT)
-        if method == "GET":
-            data = f"{method} {path} HTTP/{version}\r\n"
-        elif method == "POST":
-            data = f"{method} {path} HTTP/{version}\r\n {body} \r\n"
+
+        data = f"{method} {path} HTTP/{version}\r\n {body} \r\n"
         TIMEOUT = 5
-        if random.randint(0,9) == 0:
+        if random.randint(0,1) == 0:
+            print("will corrupt data")
             # corrupt data
             checksum = 0
         else:
@@ -207,7 +208,6 @@ class client:
                     checksum = udp_checksum(0,self.ack_num,0,"")
                     packet_data = f"{0}:{self.ack_num}:{''}:{checksum}:{0}"
                     self.client_socket.sendto(packet_data.encode(), server_address)
-                    time.sleep(1)
                     # hane3mil ehh?? 
             # implement paccket loss in the serever hena implement packet corruption
             # el3ab fel checksum beta3et wa7da minhom
@@ -255,6 +255,7 @@ def udp_checksum(seq_num,ack_num,recv_window,data):
             sum = (sum & 0xFFFF) + 1
     sum = ~sum & 0xFFFF
     return sum
+
 
 def main():
     cl = client()
